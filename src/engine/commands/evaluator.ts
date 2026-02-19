@@ -1,16 +1,24 @@
-import { EngineContext, ParsedCommand } from "../types";
+import { EngineContext, ParsedCommand, WorkspaceFile } from "../types";
 import { CommandResult } from "./utils";
 import { handlePull, handleImages, handleBuild } from "./handlers/image";
 import { handleRun, handlePs, handleStop, handleStart, handleRm } from "./handlers/container";
 import { handleLogs, handleExec } from "./handlers/exec";
 import { handleComposeUp, handleComposeDown, handleComposePs, handleComposeLogs } from "./handlers/compose";
 
-export function evaluateCommand(ctx: EngineContext, cmd: ParsedCommand): CommandResult {
+export type WorkspaceSnapshot = Record<string, WorkspaceFile>;
+
+export function evaluateCommand(
+    ctx: EngineContext,
+    cmd: ParsedCommand,
+    workspace?: WorkspaceSnapshot
+): CommandResult {
     if (cmd.command !== "docker") {
         return { context: {}, events: [], output: [`${cmd.command}: command not found`] };
     }
 
     const sub = cmd.subcommand ?? "";
+    const dockerfileContent = workspace?.["Dockerfile"]?.content;
+    const composeContent = workspace?.["compose.yml"]?.content ?? workspace?.["docker-compose.yml"]?.content;
 
     switch (sub) {
         case "pull": return handlePull(ctx, cmd);
@@ -22,8 +30,8 @@ export function evaluateCommand(ctx: EngineContext, cmd: ParsedCommand): Command
         case "rm": return handleRm(ctx, cmd);
         case "logs": return handleLogs(ctx, cmd);
         case "exec": return handleExec(ctx, cmd);
-        case "build": return handleBuild(ctx, cmd);
-        case "compose up": return handleComposeUp(ctx, cmd);
+        case "build": return handleBuild(ctx, cmd, dockerfileContent);
+        case "compose up": return handleComposeUp(ctx, cmd, composeContent);
         case "compose down": return handleComposeDown(ctx);
         case "compose ps": return handleComposePs(ctx);
         case "compose logs": return handleComposeLogs(ctx, cmd);

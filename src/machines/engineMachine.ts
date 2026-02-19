@@ -1,31 +1,27 @@
-import { setup, assign, type ActorRef, fromPromise } from "xstate";
-import type { EngineContext, ParsedCommand } from "../engine/types";
-import { evaluateCommand } from "../engine/commands/evaluator";
+import { setup, assign, fromPromise, type BaseActorRef } from "xstate";
+import type { EngineContext, ParsedCommand, WorkspaceFile } from "../engine/types";
+import { evaluateCommand, type WorkspaceSnapshot } from "../engine/commands/evaluator";
 
-type EngineInput = {
-    initialContext?: Partial<EngineContext>;
+export type CommandOutputLine = {
+    text: string;
+    kind: "output" | "error" | "warning" | "info" | "success";
+};
+
+export type CommandCompleteEvent = {
+    type: "COMMAND_COMPLETE";
+    lines: CommandOutputLine[];
 };
 
 export type SubmitCommandEvent = {
     type: "SUBMIT_COMMAND";
     raw: string;
     parsed: ParsedCommand;
-    replyTo: ActorRef<any, CommandCompleteEvent>;
+    replyTo: BaseActorRef<CommandCompleteEvent>;
+    workspace?: Record<string, WorkspaceFile>;
 };
 
-type AcknowledgeErrorEvent = {
-    type: "ACKNOWLEDGE_ERROR";
-};
-
-type ResetToSnapshotEvent = {
-    type: "RESET_TO_SNAPSHOT";
-    snapshot: EngineContext;
-};
-
-export type CommandCompleteEvent = {
-    type: "COMMAND_COMPLETE";
-    lines?: { text: string; kind: "info" | "error" | "success" | "output" }[];
-};
+type AcknowledgeErrorEvent = { type: "ACKNOWLEDGE_ERROR" };
+type ResetToSnapshotEvent = { type: "RESET_TO_SNAPSHOT"; snapshot: EngineContext };
 
 type MachineEvent =
     | SubmitCommandEvent
@@ -33,7 +29,12 @@ type MachineEvent =
     | ResetToSnapshotEvent
     | CommandCompleteEvent;
 
-const defaultContext: EngineContext = {
+interface ExtendedContext extends EngineContext {
+    pendingReplyTo: BaseActorRef<CommandCompleteEvent> | null;
+    pendingWorkspace: WorkspaceSnapshot | undefined;
+}
+
+const defaultContext: ExtendedContext = {
     images: {},
     containers: {},
     networks: {},
@@ -42,32 +43,56 @@ const defaultContext: EngineContext = {
     boundPorts: {},
     pendingCommand: null,
     lastError: null,
+    pendingReplyTo: null,
+    pendingWorkspace: undefined,
 };
 
-interface ExtendedContext extends EngineContext {
-    pendingReplyTo: ActorRef<any, CommandCompleteEvent> | null;
+function classifyLine(text: string): CommandOutputLine["kind"] {
+    const t = text.trimStart();
+    if (t.startsWith("WARNING:") || t.startsWith("WARN ")) return "warning";
+    if (
+        t.startsWith("#") && /ERROR/.test(t) ||
+        t.startsWith("Error") ||
+        t.startsWith("error:") ||
+        t.startsWith("failed to") ||
+        t.startsWith("validating compose file:")
+    ) return "error";
+    if (t.startsWith("Successfully")) return "success";
+    return "output";
+}
+
+function toOutputLines(raw: string[]): CommandOutputLine[] {
+    return raw.map((text) => ({ text, kind: classifyLine(text) }));
 }
 
 export const engineMachine = setup({
     types: {
         context: {} as ExtendedContext,
         events: {} as MachineEvent,
-        input: {} as EngineInput,
+        input: {} as { initialContext?: Partial<EngineContext> },
     },
+
     actors: {
-        executor: fromPromise(async ({ input }: { input: { ctx: EngineContext; cmd: ParsedCommand } }) => {
-            const result = evaluateCommand(input.ctx, input.cmd);
-            return result;
+        executor: fromPromise(async ({
+            input,
+        }: {
+            input: { ctx: EngineContext; cmd: ParsedCommand; workspace?: WorkspaceSnapshot };
+        }) => {
+            return evaluateCommand(input.ctx, input.cmd, input.workspace);
         }),
+    },
+
+    delays: {
+        errorAutoClear: 50,
     },
 }).createMachine({
     id: "engine",
     initial: "idle",
     context: ({ input }) => ({
         ...defaultContext,
-        pendingReplyTo: null,
         ...input?.initialContext,
     }),
+
     states: {
         idle: {
             on: {
@@ -76,17 +101,19 @@ export const engineMachine = setup({
                     actions: assign({
                         pendingCommand: ({ event }) => event.parsed,
                         pendingReplyTo: ({ event }) => event.replyTo,
+                        pendingWorkspace: ({ event }) => event.workspace,
                     }),
                 },
                 RESET_TO_SNAPSHOT: {
-                    target: "idle",
                     actions: assign(({ event }) => ({
                         ...event.snapshot,
                         pendingReplyTo: null,
+                        pendingWorkspace: undefined,
                     })),
                 },
             },
         },
+
         executing: {
             invoke: {
                 id: "executor",
@@ -94,47 +121,55 @@ export const engineMachine = setup({
                 input: ({ context }) => ({
                     ctx: context,
                     cmd: context.pendingCommand!,
+                    workspace: context.pendingWorkspace,
                 }),
                 onDone: {
                     target: "idle",
                     actions: [
-                        assign(({ context, event }) => {
-                            return {
-                                ...context,
-                                ...event.output.context,
-                                eventLog: [...context.eventLog, ...event.output.events],
-                                pendingCommand: null,
-                            };
-                        }),
+                        assign(({ context, event }) => ({
+                            ...context,
+                            ...event.output.context,
+                            eventLog: [...context.eventLog, ...event.output.events],
+                            pendingCommand: null,
+                            pendingWorkspace: undefined,
+                        })),
                         ({ context, event }) => {
-                            if (context.pendingReplyTo) {
-                                context.pendingReplyTo.send({
-                                    type: "COMMAND_COMPLETE",
-                                    lines: event.output.output.map((text) => ({
-                                        text,
-                                        kind: "output" as const,
-                                    })),
-                                });
-                            }
+                            context.pendingReplyTo?.send({
+                                type: "COMMAND_COMPLETE",
+                                lines: toOutputLines(event.output.output),
+                            });
                         },
                         assign({ pendingReplyTo: null }),
                     ],
                 },
                 onError: {
-                    target: "idle",
+                    target: "error",
                     actions: [
+                        assign({
+                            lastError: ({ event }) => String(event.error),
+                            pendingCommand: null,
+                            pendingWorkspace: undefined,
+                        }),
                         ({ context, event }) => {
-                            if (context.pendingReplyTo) {
-                                context.pendingReplyTo.send({
-                                    type: "COMMAND_COMPLETE",
-                                    lines: [
-                                        { text: `Error: ${String(event.error)}`, kind: "error" },
-                                    ],
-                                });
-                            }
+                            context.pendingReplyTo?.send({
+                                type: "COMMAND_COMPLETE",
+                                lines: [{ text: `Error: ${String(event.error)}`, kind: "error" }],
+                            });
                         },
-                        assign({ pendingReplyTo: null, pendingCommand: null }),
+                        assign({ pendingReplyTo: null }),
                     ],
+                },
+            },
+        },
+
+        error: {
+            after: {
+                errorAutoClear: { target: "idle", actions: assign({ lastError: null }) },
+            },
+            on: {
+                ACKNOWLEDGE_ERROR: {
+                    target: "idle",
+                    actions: assign({ lastError: null }),
                 },
             },
         },

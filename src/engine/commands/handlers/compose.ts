@@ -1,12 +1,33 @@
-import { EngineContext, ContainerRecord, ParsedCommand } from "../../types";
+import { EngineContext, ContainerRecord, ParsedCommand, Diagnostic } from "../../types";
 import { CommandResult, createEvent, fakeId, padEnd } from "../utils";
+import { validateCompose } from "../../validators/compose";
 
-export function handleComposeUp(ctx: EngineContext, cmd: ParsedCommand): CommandResult {
+export function handleComposeUp(ctx: EngineContext, cmd: ParsedCommand, composeContent?: string): CommandResult {
     const detached = cmd.flags["d"] === true;
     const services = ["web", "db"];
     const updatedContainers = { ...ctx.containers };
     const events = [];
     const output: string[] = [];
+
+    if (composeContent !== undefined) {
+        const diagnostics = validateCompose(composeContent);
+        const errors = diagnostics.filter((d: Diagnostic) => d.severity === "error");
+        const warnings = diagnostics.filter((d: Diagnostic) => d.severity === "warning");
+
+        warnings.forEach((w: Diagnostic) => output.push(`WARNING: [${w.ruleId}] ${w.message}`));
+
+        if (errors.length > 0) {
+            errors.forEach((e: Diagnostic) => output.push(`Error [${e.ruleId}]: ${e.message}`));
+            output.push(``, `validating compose file: compose validation failed.`);
+            return {
+                context: {},
+                events: [createEvent("COMPOSE_FAILED", { errors }, "Compose validation failed")],
+                output,
+            };
+        }
+
+        if (output.length > 0) output.push("");
+    }
 
     for (const svcName of services) {
         const alreadyRunning = Object.values(updatedContainers).some(

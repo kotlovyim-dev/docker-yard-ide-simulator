@@ -16,14 +16,12 @@ const MachineContext = createContext<MachineContextType | null>(null);
 export function MachineProvider({ children }: { children: React.ReactNode }) {
     const services = useMemo(() => {
         const engineActor = createActor(engineMachine, { input: {} }).start();
+
         const ideActor = createActor(ideMachine, { input: {} }).start();
+
         const lessonActor = createActor(lessonMachine, { input: {} }).start();
 
-        return {
-            engineActor,
-            ideActor,
-            lessonActor,
-        };
+        return { engineActor, ideActor, lessonActor };
     }, []);
 
     return (
@@ -39,4 +37,8 @@ export function useMachineContext() {
         throw new Error("useMachineContext must be used within a MachineProvider");
     }
     return context;
+}
+
+export function makeGetWorkspace(ideActor: ActorRefFrom<typeof ideMachine>) {
+    return () => ideActor.getSnapshot().context.files;
 }
