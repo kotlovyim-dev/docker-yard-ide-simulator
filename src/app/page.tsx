@@ -1,5 +1,10 @@
 import { IDEShell } from "@/components/shell/IDEShell";
+import { MachineProvider } from "@/lib/machineContext";
 
 export default function Home() {
-  return <IDEShell />;
+  return (
+    <MachineProvider>
+      <IDEShell />
+    </MachineProvider>
+  );
 }
