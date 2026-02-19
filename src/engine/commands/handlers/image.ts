@@ -1,5 +1,6 @@
-import { EngineContext, ImageRecord, ParsedCommand } from "../../types";
+import { EngineContext, ImageRecord, ParsedCommand, Diagnostic } from "../../types";
 import { CommandResult, createEvent, fakeDigest, fakeId, formatSize, padEnd, resolveImage } from "../utils";
+import { validateDockerfile } from "../../validators/dockerfile";
 
 export function handlePull(ctx: EngineContext, cmd: ParsedCommand): CommandResult {
     if (cmd.args.length === 0) {
@@ -75,11 +76,39 @@ export function handleImages(ctx: EngineContext): CommandResult {
     return { context: {}, events: [], output: [header, ...rows] };
 }
 
-export function handleBuild(ctx: EngineContext, cmd: ParsedCommand): CommandResult {
+export function handleBuild(
+    ctx: EngineContext,
+    cmd: ParsedCommand,
+    dockerfileContent?: string
+): CommandResult {
     const tagFlag = cmd.flags["t"] ?? cmd.flags["tag"];
     const tag = typeof tagFlag === "string" ? tagFlag : "unnamed:latest";
     const [repo, version] = tag.includes(":") ? tag.split(":") : [tag, "latest"];
     const fullTag = `${repo}:${version}`;
+
+    if (dockerfileContent !== undefined) {
+        const diagnostics = validateDockerfile(dockerfileContent);
+        const errors = diagnostics.filter((d: Diagnostic) => d.severity === "error");
+        const warnings = diagnostics.filter((d: Diagnostic) => d.severity === "warning");
+
+        const advisoryLines = warnings.map((w: Diagnostic) => `WARNING: [${w.ruleId}] ${w.message}`);
+
+        if (errors.length > 0) {
+            const errorLines = errors.flatMap((e: Diagnostic, i: number) => [
+                `#${i + 1} ERROR [${e.ruleId}] ${e.message}`,
+                `    line ${e.line}: ${e.explanation}`,
+            ]);
+            return {
+                context: {},
+                events: [createEvent("BUILD_FAILED", { tag: fullTag, errors }, `Build failed for ${fullTag}`)],
+                output: [...advisoryLines, ...errorLines, ``, `failed to solve: Dockerfile validation failed.`],
+            };
+        }
+
+        if (advisoryLines.length > 0) {
+            advisoryLines.push("");
+        }
+    }
 
     const builtImage: ImageRecord = {
         id: fakeDigest(),
@@ -89,7 +118,6 @@ export function handleBuild(ctx: EngineContext, cmd: ParsedCommand): CommandResu
         createdAt: new Date().toISOString(),
         layers: [fakeId(), fakeId(), fakeId(), fakeId()],
     };
-
     const shortId = builtImage.id.replace("sha256:", "").substring(0, 12);
 
     return {
