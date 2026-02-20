@@ -177,18 +177,45 @@ Reads your `compose.yml`, validates it, and creates services/networks/volumes in
 
 Single-repo, no backend, no server. Everything runs in the browser.
 
+### Functional Overview
+
+- UI panels dispatch intent to XState machines.
+- Machines translate intent into engine commands, then reconcile engine events into UI state.
+- The engine parses and validates `Dockerfile`/`compose.yml`, runs command handlers, and emits a deterministic event stream.
+- Session snapshots are persisted to `localStorage` for restore.
+
+### Project Structure
+
 ```
 src/
-├── engine/          # Pure TypeScript simulation core (no React/DOM)
-│   ├── cli/         # Parser + command handlers
-│   ├── dockerfile/  # Validator + build evaluator
-│   ├── compose/     # Validator + evaluator
-│   └── events/      # Event log + deterministic state
-├── ui/              # IDE shell (Explorer / Editor / Visualizer / Terminal)
-└── machines/        # XState actors
-    ├── engine/      # Command execution runtime
-    ├── ide/         # Layout + selections
-    └── lessons/     # Scenario templates + progress
+├── app/                 # Next.js app router (layout, page, globals)
+├── components/          # IDE shell + shared UI components
+│   ├── shell/           # Panels: editor, terminal, yard, lesson flow
+│   └── ui/              # Button, tabs, tooltip, etc.
+├── engine/              # Pure TypeScript simulation core (no React/DOM)
+│   ├── commands/        # CLI parser + command handlers
+│   ├── validators/      # Dockerfile + Compose validators
+│   ├── parser.ts        # CLI parse entry point
+│   └── schema.ts        # Compose schema helpers
+├── lessons/             # Scenario templates + lesson index
+├── lib/                 # Storage, lesson utils, shared helpers
+├── machines/            # XState actors (engine, IDE, lessons, terminal)
+├── __tests__/           # Parser/evaluator unit tests
+└── types/               # Ambient type declarations
+```
+
+### System Diagram
+
+```mermaid
+flowchart LR
+    UI[IDE Shell UI] -->|user actions| Machines[XState machines]
+    Machines -->|commands| Engine[Simulation engine]
+    Engine -->|events + derived state| Machines
+    Engine -->|diagnostics| Validators[Dockerfile/Compose validators]
+    Validators --> Machines
+    Lessons[Lesson templates] --> Machines
+    Storage[(Session storage)] <-->|snapshots| Machines
+    Machines -->|render state| UI
 ```
 
 **Design principles:**
@@ -214,17 +241,17 @@ npm run format    # Format
 ## 🗺️ Roadmap
 
 - [x] Project scaffolding + README
-- [ ] IDE shell — Explorer + Editor + Visualizer + Terminal
-- [ ] Engine core — event sourcing, `help` command
-- [ ] Terminal bridge (xterm.js)
-- [ ] CLI MVP — `pull`, `run`, `ps`, `logs`, `exec`
-- [ ] In-memory workspace filesystem
-- [ ] Monaco editor + tabs
-- [ ] Diagnostics v1 — Dockerfile + Compose markers
-- [ ] Build simulation — layers + cache hints
-- [ ] Compose simulation — services graph
-- [ ] Lessons + scenario templates
-- [ ] Autocomplete + "Explain last action"
+- [x] IDE shell — Explorer + Editor + Visualizer + Terminal
+- [x] Engine core — event sourcing, `help` command
+- [x] Terminal bridge (xterm.js)
+- [x] CLI MVP — `pull`, `run`, `ps`, `logs`, `exec`
+- [x] In-memory workspace filesystem
+- [x] Monaco editor + tabs
+- [x] Diagnostics v1 — Dockerfile + Compose markers
+- [x] Build simulation — layers + cache hints
+- [x] Compose simulation — services graph
+- [x] Lessons + scenario templates
+- [x] Autocomplete + "Explain last action"
 
 ---
 
