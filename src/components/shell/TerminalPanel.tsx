@@ -7,16 +7,17 @@ import { Terminal as TerminalIcon, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { terminalMachine } from "@/machines/terminalMachine";
-import { useMachineContext } from "@/lib/machineContext";
+import { useMachineContext, makeGetWorkspace } from "@/lib/machineContext";
 import "xterm/css/xterm.css";
 
 const PROMPT = "\x1b[2m yard:/project \x1b[0m\x1b[36m$\x1b[0m ";
 
 export function TerminalPanel() {
-    const { engineActor } = useMachineContext();
+    const { engineActor, ideActor } = useMachineContext();
+    const getWorkspace = makeGetWorkspace(ideActor);
 
     const [state, send] = useMachine(terminalMachine, {
-        input: { engineActor }
+        input: { engineActor, getWorkspace },
     });
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<XTerminal | null>(null);
@@ -95,7 +96,6 @@ export function TerminalPanel() {
         };
     }, [send]);
 
-
     useEffect(() => {
         const term = terminalRef.current;
         if (!term) return;
@@ -104,10 +104,10 @@ export function TerminalPanel() {
         const start = lastPrintedIndex.current;
 
         if (lines.length > start) {
-            term.write('\x1b[2K\r');
+            term.write("\x1b[2K\r");
 
             const newLines = lines.slice(start);
-            newLines.forEach((line: { text: string; kind: string; }) => {
+            newLines.forEach((line: { text: string; kind: string }) => {
                 let formatted = line.text;
                 if (line.kind === "error") {
                     formatted = `\x1b[31m${line.text}\x1b[0m`;
@@ -124,7 +124,7 @@ export function TerminalPanel() {
     }, [state.context.outputLines, state.context.inputBuffer]);
 
     return (
-        <div className="flex flex-col shrink-0 bg-yard-bg border-t border-yard-border [box-shadow:0_0_28px_0_hsl(176_80%_45%_/_0.22)] h-[320px]">
+        <div className="flex flex-col shrink-0 bg-yard-bg border-t border-yard-border [box-shadow:0_0_28px_0_hsl(176_80%_45%/0.22)] h-80">
             <div className="flex items-center gap-2 px-3 py-2 bg-yard-header border-b border-yard-border shrink-0">
                 <TerminalIcon size={13} className="text-yard-muted" />
                 <span className="text-[10px] font-semibold tracking-widest uppercase text-yard-muted">
@@ -132,7 +132,10 @@ export function TerminalPanel() {
                 </span>
             </div>
 
-            <Tabs defaultValue="terminal-1" className="flex flex-col flex-1 min-h-0">
+            <Tabs
+                defaultValue="terminal-1"
+                className="flex flex-col flex-1 min-h-0"
+            >
                 <TabsList className="h-8 rounded-none bg-yard-surface border-b border-yard-border px-2 gap-0 justify-start shrink-0">
                     <TabsTrigger
                         value="terminal-1"
@@ -141,13 +144,23 @@ export function TerminalPanel() {
                         <TerminalIcon size={11} className="mr-1.5" />
                         terminal 1
                     </TabsTrigger>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 text-yard-muted hover:text-yard-fg hover:bg-transparent">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 ml-1 text-yard-muted hover:text-yard-fg hover:bg-transparent"
+                    >
                         <Plus size={11} />
                     </Button>
                 </TabsList>
 
-                <TabsContent value="terminal-1" className="flex-1 m-0 p-0 relative min-h-0 bg-yard-bg">
-                    <div ref={containerRef} className="h-full w-full [padding-left:12px;padding-top:8px]" />
+                <TabsContent
+                    value="terminal-1"
+                    className="flex-1 m-0 p-0 relative min-h-0 bg-yard-bg"
+                >
+                    <div
+                        ref={containerRef}
+                        className="h-full w-full [padding-left:12px;padding-top:8px]"
+                    />
                 </TabsContent>
             </Tabs>
         </div>
