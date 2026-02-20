@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import { TopBar } from "./TopBar";
 import { ExplorerPanel } from "./ExplorerPanel";
 import { EditorPanel } from "./EditorPanel";
@@ -10,10 +10,9 @@ import { LessonBridge } from "./LessonBridge";
 
 const MIN_EXPLORER = 120;
 const MAX_EXPLORER = 420;
-const MIN_YARD = 220;
-const MAX_YARD = 560;
+const YARD_WIDTH = 320;
 const MIN_TERMINAL = 120;
-const MAX_TERMINAL = 600;
+const MAX_TERMINAL_FALLBACK = 600;
 
 function useResize(
     initial: number,
@@ -71,7 +70,7 @@ function ResizeHandle({
         <div
             {...handleProps}
             className={[
-                "shrink-0 relative group select-none z-10",
+                "shrink-0 relative group select-none",
                 isH
                     ? "w-1.25 cursor-col-resize hover:bg-teal/20 active:bg-teal/30"
                     : "h-1.25 cursor-row-resize hover:bg-teal/20 active:bg-teal/30",
@@ -88,22 +87,34 @@ function ResizeHandle({
 }
 
 export function IDEShell() {
+    const [terminalMax, setTerminalMax] = useState(() => {
+        if (typeof window === "undefined") return MAX_TERMINAL_FALLBACK;
+        return Math.max(MIN_TERMINAL, Math.floor(window.innerHeight / 3));
+    });
+
+    useEffect(() => {
+        function updateTerminalMax() {
+            setTerminalMax(
+                Math.max(MIN_TERMINAL, Math.floor(window.innerHeight / 3)),
+            );
+        }
+
+        updateTerminalMax();
+        window.addEventListener("resize", updateTerminalMax);
+        return () => window.removeEventListener("resize", updateTerminalMax);
+    }, []);
+
     const [explorerW, explorerHandle] = useResize(
         200,
         MIN_EXPLORER,
         MAX_EXPLORER,
         "horizontal-left",
     );
-    const [yardW, yardHandle] = useResize(
-        320,
-        MIN_YARD,
-        MAX_YARD,
-        "horizontal-right",
-    );
+    const yardW = YARD_WIDTH;
     const [terminalH, terminalHandle] = useResize(
         180,
         MIN_TERMINAL,
-        MAX_TERMINAL,
+        terminalMax,
         "vertical",
     );
 
@@ -128,8 +139,6 @@ export function IDEShell() {
                 <div className="flex-1 min-w-0 overflow-hidden h-full flex flex-col">
                     <EditorPanel />
                 </div>
-
-                <ResizeHandle direction="horizontal" handleProps={yardHandle} />
 
                 <div
                     style={{ width: yardW }}

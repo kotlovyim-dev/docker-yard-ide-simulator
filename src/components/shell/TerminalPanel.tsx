@@ -136,7 +136,7 @@ export function TerminalPanel() {
     }, [state.context.commandSequence, engineActor, lessonActor]);
 
     return (
-        <div className="flex flex-col shrink-0 bg-yard-bg border-t border-yard-border [box-shadow:0_0_28px_0_hsl(176_80%_45%/0.22)] h-80">
+        <div className="flex flex-col h-full bg-yard-surface border-t border-yard-border terminal-glow">
             <div className="flex items-center gap-2 px-3 py-2 bg-yard-header border-b border-yard-border shrink-0">
                 <TerminalIcon size={13} className="text-yard-muted" />
                 <span className="text-[10px] font-semibold tracking-widest uppercase text-yard-muted">
@@ -167,11 +167,11 @@ export function TerminalPanel() {
 
                 <TabsContent
                     value="terminal-1"
-                    className="flex-1 m-0 p-0 relative min-h-0 bg-yard-bg"
+                    className="flex-1 m-0 p-0 relative min-h-0 bg-yard-surface"
                 >
                     <div
                         ref={containerRef}
-                        className="h-full w-full [padding-left:12px;padding-top:8px]"
+                        className="h-full w-full bg-yard-bg [padding-left:12px;padding-top:8px]"
                     />
                 </TabsContent>
             </Tabs>
