@@ -59,7 +59,13 @@ export const NetworkRecordSchema = z.object({
 export const VolumeRecordSchema = z.object({
     id: z.string(),
     name: z.string(),
-    mountpoint: z.string(), // simulated path
+    mountpoint: z.string(),
+});
+
+export const ComposeStackSchema = z.object({
+    name: z.string(),
+    serviceNames: z.array(z.string()),
+    containerIds: z.record(z.string(), z.string()),
 });
 
 export const EngineEventSchema = z.object({
@@ -106,7 +112,7 @@ export const ObjectiveSchema = z.object({
 export const LessonSchema = z.object({
     id: z.string(),
     title: z.string(),
-    description: z.string(), // markdown
+    description: z.string(), 
     initialWorkspace: z.array(WorkspaceFileSchema),
     initialImages: z.array(ImageRecordSchema),
     initialContainers: z.array(ContainerRecordSchema),
@@ -118,7 +124,10 @@ export const ParsedCommandSchema = z.object({
     command: z.string(),
     subcommand: z.string().nullable(),
     args: z.array(z.string()),
-    flags: z.record(z.string(), z.union([z.string(), z.boolean(), z.array(z.string())])),
+    flags: z.record(
+        z.string(),
+        z.union([z.string(), z.boolean(), z.array(z.string())]),
+    ),
 });
 
 export const EngineContextSchema = z.object({
@@ -126,6 +135,7 @@ export const EngineContextSchema = z.object({
     containers: z.record(z.string(), ContainerRecordSchema),
     networks: z.record(z.string(), NetworkRecordSchema),
     volumes: z.record(z.string(), VolumeRecordSchema),
+    composeStacks: z.record(z.string(), ComposeStackSchema),
     eventLog: z.array(EngineEventSchema),
     boundPorts: z.record(z.string(), z.string()),
     pendingCommand: ParsedCommandSchema.nullable(),

@@ -1,6 +1,13 @@
 import { setup, assign, fromPromise, type BaseActorRef } from "xstate";
-import type { EngineContext, ParsedCommand, WorkspaceFile } from "../engine/types";
-import { evaluateCommand, type WorkspaceSnapshot } from "../engine/commands/evaluator";
+import type {
+    EngineContext,
+    ParsedCommand,
+    WorkspaceFile,
+} from "../engine/types";
+import {
+    evaluateCommand,
+    type WorkspaceSnapshot,
+} from "../engine/commands/evaluator";
 
 export type CommandOutputLine = {
     text: string;
@@ -21,7 +28,10 @@ export type SubmitCommandEvent = {
 };
 
 type AcknowledgeErrorEvent = { type: "ACKNOWLEDGE_ERROR" };
-type ResetToSnapshotEvent = { type: "RESET_TO_SNAPSHOT"; snapshot: EngineContext };
+type ResetToSnapshotEvent = {
+    type: "RESET_TO_SNAPSHOT";
+    snapshot: EngineContext;
+};
 
 type MachineEvent =
     | SubmitCommandEvent
@@ -39,6 +49,7 @@ const defaultContext: ExtendedContext = {
     containers: {},
     networks: {},
     volumes: {},
+    composeStacks: {},
     eventLog: [],
     boundPorts: {},
     pendingCommand: null,
@@ -51,12 +62,13 @@ function classifyLine(text: string): CommandOutputLine["kind"] {
     const t = text.trimStart();
     if (t.startsWith("WARNING:") || t.startsWith("WARN ")) return "warning";
     if (
-        t.startsWith("#") && /ERROR/.test(t) ||
+        (t.startsWith("#") && /ERROR/.test(t)) ||
         t.startsWith("Error") ||
         t.startsWith("error:") ||
         t.startsWith("failed to") ||
         t.startsWith("validating compose file:")
-    ) return "error";
+    )
+        return "error";
     if (t.startsWith("Successfully")) return "success";
     return "output";
 }
@@ -73,13 +85,19 @@ export const engineMachine = setup({
     },
 
     actors: {
-        executor: fromPromise(async ({
-            input,
-        }: {
-            input: { ctx: EngineContext; cmd: ParsedCommand; workspace?: WorkspaceSnapshot };
-        }) => {
-            return evaluateCommand(input.ctx, input.cmd, input.workspace);
-        }),
+        executor: fromPromise(
+            async ({
+                input,
+            }: {
+                input: {
+                    ctx: EngineContext;
+                    cmd: ParsedCommand;
+                    workspace?: WorkspaceSnapshot;
+                };
+            }) => {
+                return evaluateCommand(input.ctx, input.cmd, input.workspace);
+            },
+        ),
     },
 
     delays: {
@@ -129,7 +147,10 @@ export const engineMachine = setup({
                         assign(({ context, event }) => ({
                             ...context,
                             ...event.output.context,
-                            eventLog: [...context.eventLog, ...event.output.events],
+                            eventLog: [
+                                ...context.eventLog,
+                                ...event.output.events,
+                            ],
                             pendingCommand: null,
                             pendingWorkspace: undefined,
                         })),
@@ -153,7 +174,12 @@ export const engineMachine = setup({
                         ({ context, event }) => {
                             context.pendingReplyTo?.send({
                                 type: "COMMAND_COMPLETE",
-                                lines: [{ text: `Error: ${String(event.error)}`, kind: "error" }],
+                                lines: [
+                                    {
+                                        text: `Error: ${String(event.error)}`,
+                                        kind: "error",
+                                    },
+                                ],
                             });
                         },
                         assign({ pendingReplyTo: null }),
@@ -164,7 +190,10 @@ export const engineMachine = setup({
 
         error: {
             after: {
-                errorAutoClear: { target: "idle", actions: assign({ lastError: null }) },
+                errorAutoClear: {
+                    target: "idle",
+                    actions: assign({ lastError: null }),
+                },
             },
             on: {
                 ACKNOWLEDGE_ERROR: {

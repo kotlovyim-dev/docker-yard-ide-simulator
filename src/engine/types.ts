@@ -4,6 +4,7 @@ import {
     ContainerRecordSchema,
     NetworkRecordSchema,
     VolumeRecordSchema,
+    ComposeStackSchema,
     EngineEventSchema,
     WorkspaceFileSchema,
     DiagnosticSchema,
@@ -21,6 +22,7 @@ export type ImageRecord = z.infer<typeof ImageRecordSchema>;
 export type ContainerRecord = z.infer<typeof ContainerRecordSchema>;
 export type NetworkRecord = z.infer<typeof NetworkRecordSchema>;
 export type VolumeRecord = z.infer<typeof VolumeRecordSchema>;
+export type ComposeStack = z.infer<typeof ComposeStackSchema>;
 export type EngineEvent = z.infer<typeof EngineEventSchema>;
 export type WorkspaceFile = z.infer<typeof WorkspaceFileSchema>;
 export type Diagnostic = z.infer<typeof DiagnosticSchema>;

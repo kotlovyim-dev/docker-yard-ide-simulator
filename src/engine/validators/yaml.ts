@@ -1,9 +1,15 @@
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type YamlValue = string | number | boolean | null | YamlValue[] | Record<string, unknown>;
+type YamlValue =
+    | string
+    | number
+    | boolean
+    | null
+    | YamlValue[]
+    | Record<string, unknown>;
 export type YamlDoc = Record<string, YamlValue>;
 
 export function asDoc(val: YamlValue): YamlDoc | null {
-    if (val && typeof val === "object" && !Array.isArray(val)) return val as YamlDoc;
+    if (val && typeof val === "object" && !Array.isArray(val))
+        return val as YamlDoc;
     return null;
 }
 
@@ -26,16 +32,20 @@ function parseScalar(value: string): YamlValue {
     return value.replace(/^["']|["']$/g, "");
 }
 
-export function parseYaml(content: string): { doc: YamlDoc | null; error: { line: number; message: string } | null } {
+export function parseYaml(content: string): {
+    doc: YamlDoc | null;
+    error: { line: number; message: string } | null;
+} {
     try {
         const lines = content.split("\n");
         const doc: YamlDoc = {};
-        const stack: Array<{ indent: number; obj: YamlDoc | YamlValue[] }> = [{ indent: -1, obj: doc }];
+        const stack: Array<{ indent: number; obj: YamlDoc | YamlValue[] }> = [
+            { indent: -1, obj: doc },
+        ];
         let lastKey: string | null = null;
-        let lineNumber = 0;
 
-        for (const rawLine of lines) {
-            lineNumber++;
+        for (let idx = 0; idx < lines.length; idx++) {
+            const rawLine = lines[idx];
             const line = rawLine.replace(/\r$/, "");
             const trimmed = line.trimStart();
             if (trimmed === "" || trimmed.startsWith("#")) continue;
@@ -43,15 +53,22 @@ export function parseYaml(content: string): { doc: YamlDoc | null; error: { line
             const indent = line.length - trimmed.length;
 
             if (trimmed.startsWith("- ")) {
-                while (stack.length > 1 && stack[stack.length - 1].indent >= indent) stack.pop();
+                while (
+                    stack.length > 1 &&
+                    stack[stack.length - 1].indent >= indent
+                )
+                    stack.pop();
                 const parent = stack[stack.length - 1].obj;
                 const value = trimmed.slice(2).trim();
                 if (Array.isArray(parent)) {
                     parent.push(parseScalar(value));
                 } else if (lastKey && typeof parent === "object") {
                     const existing = (parent as YamlDoc)[lastKey];
-                    if (!Array.isArray(existing)) (parent as YamlDoc)[lastKey] = [];
-                    ((parent as YamlDoc)[lastKey] as YamlValue[]).push(parseScalar(value));
+                    if (!Array.isArray(existing))
+                        (parent as YamlDoc)[lastKey] = [];
+                    ((parent as YamlDoc)[lastKey] as YamlValue[]).push(
+                        parseScalar(value),
+                    );
                 }
                 continue;
             }
@@ -62,13 +79,35 @@ export function parseYaml(content: string): { doc: YamlDoc | null; error: { line
             const key = trimmed.slice(0, colonIdx).trim();
             const rest = trimmed.slice(colonIdx + 1).trim();
 
-            while (stack.length > 1 && stack[stack.length - 1].indent >= indent) stack.pop();
+            while (stack.length > 1 && stack[stack.length - 1].indent >= indent)
+                stack.pop();
             const parent = stack[stack.length - 1].obj as YamlDoc;
 
             if (rest === "" || rest === "|" || rest === ">") {
-                const nested: YamlDoc = {};
-                parent[key] = nested;
-                stack.push({ indent, obj: nested });
+                let nextLine = "";
+                let nextIndent = -1;
+                for (let j = idx + 1; j < lines.length; j++) {
+                    const candidate = lines[j].replace(/\r$/, "");
+                    const candidateTrimmed = candidate.trimStart();
+                    if (
+                        candidateTrimmed === "" ||
+                        candidateTrimmed.startsWith("#")
+                    )
+                        continue;
+                    nextLine = candidateTrimmed;
+                    nextIndent = candidate.length - candidateTrimmed.length;
+                    break;
+                }
+
+                if (nextLine.startsWith("- ") && nextIndent > indent) {
+                    const nested: YamlValue[] = [];
+                    parent[key] = nested;
+                    stack.push({ indent, obj: nested });
+                } else {
+                    const nested: YamlDoc = {};
+                    parent[key] = nested;
+                    stack.push({ indent, obj: nested });
+                }
                 lastKey = key;
             } else {
                 parent[key] = parseScalar(rest);
