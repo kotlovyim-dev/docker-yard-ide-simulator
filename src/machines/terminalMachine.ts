@@ -9,6 +9,7 @@ type TerminalContext = {
     inputBuffer: string;
     outputLines: CommandOutputLine[];
     isRunning: boolean;
+    commandSequence: number;
     history: string[];
     historyIndex: number;
     tempHistoryBuffer: string;
@@ -37,6 +38,7 @@ const defaultTerminalContext: TerminalContext = {
     inputBuffer: "",
     outputLines: [],
     isRunning: false,
+    commandSequence: 0,
     history: [],
     historyIndex: -1,
     tempHistoryBuffer: "",
@@ -167,7 +169,11 @@ export const terminalMachine = setup({
                     target: "ready",
                     actions: [
                         "appendOutput",
-                        assign({ isRunning: false }),
+                        assign({
+                            isRunning: false,
+                            commandSequence: ({ context }) =>
+                                context.commandSequence + 1,
+                        }),
                     ],
                 },
             },

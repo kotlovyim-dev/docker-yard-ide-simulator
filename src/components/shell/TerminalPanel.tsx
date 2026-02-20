@@ -13,7 +13,7 @@ import "xterm/css/xterm.css";
 const PROMPT = "\x1b[2m yard:/project \x1b[0m\x1b[36m$\x1b[0m ";
 
 export function TerminalPanel() {
-    const { engineActor, ideActor } = useMachineContext();
+    const { engineActor, ideActor, lessonActor } = useMachineContext();
     const getWorkspace = makeGetWorkspace(ideActor);
 
     const [state, send] = useMachine(terminalMachine, {
@@ -24,6 +24,7 @@ export function TerminalPanel() {
     const fitAddonRef = useRef<FitAddon | null>(null);
 
     const lastPrintedIndex = useRef(0);
+    const lastCommandSequence = useRef(0);
 
     useEffect(() => {
         if (!containerRef.current || terminalRef.current) return;
@@ -122,6 +123,17 @@ export function TerminalPanel() {
         }
         term.write(`\x1b[2K\r${PROMPT}${state.context.inputBuffer}`);
     }, [state.context.outputLines, state.context.inputBuffer]);
+
+    useEffect(() => {
+        const sequence = state.context.commandSequence;
+        if (sequence === lastCommandSequence.current) return;
+        lastCommandSequence.current = sequence;
+        const snapshot = engineActor.getSnapshot().context;
+        lessonActor.send({
+            type: "CHECK_OBJECTIVES",
+            engineSnapshot: snapshot,
+        });
+    }, [state.context.commandSequence, engineActor, lessonActor]);
 
     return (
         <div className="flex flex-col shrink-0 bg-yard-bg border-t border-yard-border [box-shadow:0_0_28px_0_hsl(176_80%_45%/0.22)] h-80">

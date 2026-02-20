@@ -12,6 +12,7 @@ import {
     EngineContextSchema,
     WorkspaceContextSchema,
     LessonContextSchema,
+    ScenarioSnapshotSchema,
     ParsedCommandSchema,
     PortMappingSchema,
     VolumeMountSchema,
@@ -26,10 +27,17 @@ export type ComposeStack = z.infer<typeof ComposeStackSchema>;
 export type EngineEvent = z.infer<typeof EngineEventSchema>;
 export type WorkspaceFile = z.infer<typeof WorkspaceFileSchema>;
 export type Diagnostic = z.infer<typeof DiagnosticSchema>;
-export type Lesson = z.infer<typeof LessonSchema>;
+type LessonBase = z.infer<typeof LessonSchema>;
+export type Lesson = Omit<LessonBase, "objectives"> & {
+    objectives: Objective[];
+};
 export type EngineContext = z.infer<typeof EngineContextSchema>;
 export type WorkspaceContext = z.infer<typeof WorkspaceContextSchema>;
-export type LessonContext = z.infer<typeof LessonContextSchema>;
+type LessonContextBase = z.infer<typeof LessonContextSchema>;
+export type LessonContext = Omit<LessonContextBase, "availableLessons"> & {
+    availableLessons: Lesson[];
+};
+export type ScenarioSnapshot = z.infer<typeof ScenarioSnapshotSchema>;
 export type ParsedCommand = z.infer<typeof ParsedCommandSchema>;
 export type PortMapping = z.infer<typeof PortMappingSchema>;
 export type VolumeMount = z.infer<typeof VolumeMountSchema>;

@@ -4,19 +4,39 @@ import { useSelector } from "@xstate/react";
 import { useMachineContext } from "@/lib/machineContext";
 
 export function StatusBar() {
-    const { engineActor, ideActor } = useMachineContext();
+    const { engineActor, ideActor, lessonActor } = useMachineContext();
 
-    const containerCount = useSelector(engineActor, (s) =>
-        Object.values(s.context.containers).filter(
-            (c) => c.status !== "removed"
-        ).length
+    const containerCount = useSelector(
+        engineActor,
+        (s) =>
+            Object.values(s.context.containers).filter(
+                (c) => c.status !== "removed",
+            ).length,
     );
 
-    const errorCount = useSelector(ideActor, (s) =>
-        Object.values(s.context.diagnostics)
-            .flat()
-            .filter((d) => d.severity === "error").length
+    const errorCount = useSelector(
+        ideActor,
+        (s) =>
+            Object.values(s.context.diagnostics)
+                .flat()
+                .filter((d) => d.severity === "error").length,
     );
+
+    const currentLessonId = useSelector(
+        lessonActor,
+        (s) => s.context.currentLessonId,
+    );
+    const currentObjectiveIndex = useSelector(
+        lessonActor,
+        (s) => s.context.currentObjectiveIndex,
+    );
+    const availableLessons = useSelector(
+        lessonActor,
+        (s) => s.context.availableLessons,
+    );
+
+    const activeLesson = availableLessons.find((l) => l.id === currentLessonId);
+    const activeObjective = activeLesson?.objectives[currentObjectiveIndex];
 
     return (
         <footer className="flex items-center gap-4 px-3 h-6 shrink-0 bg-yard-header border-t border-yard-border">
@@ -35,13 +55,21 @@ export function StatusBar() {
             </div>
             <div className="w-px h-3 bg-yard-border" />
             <div className="flex items-center gap-1.5 text-[11px]">
-                <span className={errorCount > 0 ? "text-[hsl(0_78%_56%)]" : "text-yard-dim"}>
+                <span
+                    className={
+                        errorCount > 0
+                            ? "text-[hsl(0_78%_56%)]"
+                            : "text-yard-dim"
+                    }
+                >
                     {errorCount} error{errorCount !== 1 ? "s" : ""}
                 </span>
             </div>
             <div className="w-px h-3 bg-yard-border" />
             <span className="text-[11px] text-yard-dim flex-1 truncate">
-                No active objective
+                {activeObjective
+                    ? activeObjective.description
+                    : "No active objective"}
             </span>
         </footer>
     );
