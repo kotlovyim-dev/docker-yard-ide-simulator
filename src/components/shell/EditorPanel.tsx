@@ -6,6 +6,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useSelector } from "@xstate/react";
 import { useMachineContext } from "@/lib/machineContext";
 import type { Diagnostic } from "@/engine/types";
+import type { Monaco } from "@monaco-editor/react";
+import type { editor } from "monaco-editor";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
     ssr: false,
@@ -53,6 +55,10 @@ function DiagnosticRow({ d }: { d: Diagnostic }) {
 
 export function EditorPanel() {
     const { ideActor } = useMachineContext();
+    const completionDisposables = useRef<{ dispose: () => void }[] | null>(
+        null,
+    );
+    const activePathRef = useRef<string | null>(null);
 
     const openTabs = useSelector(ideActor, (s) => s.context.openTabs);
     const activeFilePath = useSelector(
@@ -69,9 +75,265 @@ export function EditorPanel() {
 
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const handleEditorMount = useCallback(() => {
-        ideActor.send({ type: "EDITOR_READY" });
-    }, [ideActor]);
+    const handleEditorMount = useCallback(
+        (_editor: unknown, monaco: Monaco) => {
+            ideActor.send({ type: "EDITOR_READY" });
+            if (completionDisposables.current) return;
+
+            const isComposeFile = (path: string | null | undefined) => {
+                if (!path) return false;
+                const filename = path.split("/").pop()?.toLowerCase();
+                return Boolean(
+                    filename === "compose.yml" ||
+                    filename === "compose.yaml" ||
+                    filename === "docker-compose.yml" ||
+                    filename === "docker-compose.yaml",
+                );
+            };
+
+            const dockerProvider =
+                monaco.languages.registerCompletionItemProvider("dockerfile", {
+                    provideCompletionItems: () => ({
+                        suggestions: [
+                            {
+                                label: "FROM",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: "FROM ${1:alpine}\n",
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "RUN",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: "RUN ${1:command}\n",
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "COPY",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: "COPY ${1:src} ${2:dest}\n",
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "ADD",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: "ADD ${1:src} ${2:dest}\n",
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "CMD",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: 'CMD ["${1:command}"]\n',
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "ENTRYPOINT",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: 'ENTRYPOINT ["${1:command}"]\n',
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "ENV",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: "ENV ${1:KEY}=${2:value}\n",
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "WORKDIR",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: "WORKDIR ${1:/app}\n",
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "EXPOSE",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: "EXPOSE ${1:80}\n",
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "ARG",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: "ARG ${1:NAME}=${2:value}\n",
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "LABEL",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: 'LABEL ${1:key}="${2:value}"\n',
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "USER",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: "USER ${1:node}\n",
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                            {
+                                label: "VOLUME",
+                                kind: monaco.languages.CompletionItemKind
+                                    .Keyword,
+                                insertText: 'VOLUME ["${1:/data}"]\n',
+                                insertTextRules:
+                                    monaco.languages
+                                        .CompletionItemInsertTextRule
+                                        .InsertAsSnippet,
+                            },
+                        ],
+                    }),
+                });
+
+            const composeProvider =
+                monaco.languages.registerCompletionItemProvider("yaml", {
+                    provideCompletionItems: (model: editor.ITextModel) => {
+                        const modelPath = model.uri.path || "";
+                        const isCompose =
+                            isComposeFile(modelPath) ||
+                            isComposeFile(activePathRef.current);
+                        if (!isCompose) {
+                            return { suggestions: [] };
+                        }
+
+                        return {
+                            suggestions: [
+                                {
+                                    label: "services",
+                                    kind: monaco.languages.CompletionItemKind
+                                        .Keyword,
+                                    insertText:
+                                        "services:\n  ${1:app}:\n    image: ${2:nginx}\n",
+                                    insertTextRules:
+                                        monaco.languages
+                                            .CompletionItemInsertTextRule
+                                            .InsertAsSnippet,
+                                },
+                                {
+                                    label: "image",
+                                    kind: monaco.languages.CompletionItemKind
+                                        .Property,
+                                    insertText: "image: ${1:nginx}\n",
+                                    insertTextRules:
+                                        monaco.languages
+                                            .CompletionItemInsertTextRule
+                                            .InsertAsSnippet,
+                                },
+                                {
+                                    label: "build",
+                                    kind: monaco.languages.CompletionItemKind
+                                        .Property,
+                                    insertText: "build: ${1:.}\n",
+                                    insertTextRules:
+                                        monaco.languages
+                                            .CompletionItemInsertTextRule
+                                            .InsertAsSnippet,
+                                },
+                                {
+                                    label: "ports",
+                                    kind: monaco.languages.CompletionItemKind
+                                        .Property,
+                                    insertText: 'ports:\n  - "${1:8080}:80"\n',
+                                    insertTextRules:
+                                        monaco.languages
+                                            .CompletionItemInsertTextRule
+                                            .InsertAsSnippet,
+                                },
+                                {
+                                    label: "environment",
+                                    kind: monaco.languages.CompletionItemKind
+                                        .Property,
+                                    insertText:
+                                        'environment:\n  ${1:KEY}: "${2:value}"\n',
+                                    insertTextRules:
+                                        monaco.languages
+                                            .CompletionItemInsertTextRule
+                                            .InsertAsSnippet,
+                                },
+                                {
+                                    label: "volumes",
+                                    kind: monaco.languages.CompletionItemKind
+                                        .Property,
+                                    insertText:
+                                        "volumes:\n  - ${1:./data}:/data\n",
+                                    insertTextRules:
+                                        monaco.languages
+                                            .CompletionItemInsertTextRule
+                                            .InsertAsSnippet,
+                                },
+                                {
+                                    label: "depends_on",
+                                    kind: monaco.languages.CompletionItemKind
+                                        .Property,
+                                    insertText: "depends_on:\n  - ${1:db}\n",
+                                    insertTextRules:
+                                        monaco.languages
+                                            .CompletionItemInsertTextRule
+                                            .InsertAsSnippet,
+                                },
+                                {
+                                    label: "networks",
+                                    kind: monaco.languages.CompletionItemKind
+                                        .Property,
+                                    insertText: "networks:\n  - ${1:default}\n",
+                                    insertTextRules:
+                                        monaco.languages
+                                            .CompletionItemInsertTextRule
+                                            .InsertAsSnippet,
+                                },
+                            ],
+                        };
+                    },
+                });
+
+            completionDisposables.current = [dockerProvider, composeProvider];
+        },
+        [ideActor],
+    );
 
     const handleChange = useCallback(
         (value: string | undefined) => {
@@ -89,10 +351,13 @@ export function EditorPanel() {
     );
 
     useEffect(() => {
+        activePathRef.current = activeFilePath;
         return () => {
             if (debounceTimer.current) clearTimeout(debounceTimer.current);
+            completionDisposables.current?.forEach((d) => d.dispose());
+            completionDisposables.current = null;
         };
-    }, []);
+    }, [activeFilePath]);
 
     const activeFile = activeFilePath ? files[activeFilePath] : null;
     const errorCount = allDiagnostics.filter(
@@ -168,6 +433,16 @@ export function EditorPanel() {
                             renderLineHighlight: "none",
                             overviewRulerBorder: false,
                             hideCursorInOverviewRuler: true,
+                            quickSuggestions: {
+                                other: true,
+                                comments: false,
+                                strings: true,
+                            },
+                            quickSuggestionsDelay: 40,
+                            suggestOnTriggerCharacters: true,
+                            snippetSuggestions: "top",
+                            wordBasedSuggestions: "off",
+                            tabCompletion: "on",
                         }}
                     />
                 ) : (

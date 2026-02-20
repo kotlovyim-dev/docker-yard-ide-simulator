@@ -27,13 +27,17 @@ type UpdateFileEvent = {
 type CreateFileEvent = {
     type: "CREATE_FILE";
     path: string;
-    language: WorkspaceFile["language"];
+    language?: WorkspaceFile["language"];
 };
 type DeleteFileEvent = { type: "DELETE_FILE"; path: string };
 type TogglePanelEvent = { type: "TOGGLE_PANEL"; panel: PanelId };
 type ResetWorkspaceEvent = {
     type: "RESET_WORKSPACE";
     files: Record<string, WorkspaceFile>;
+};
+type HydrateWorkspaceEvent = {
+    type: "HYDRATE_WORKSPACE";
+    workspace: WorkspaceContext;
 };
 
 type IdeEvent =
@@ -44,7 +48,8 @@ type IdeEvent =
     | CreateFileEvent
     | DeleteFileEvent
     | TogglePanelEvent
-    | ResetWorkspaceEvent;
+    | ResetWorkspaceEvent
+    | HydrateWorkspaceEvent;
 
 export type IdeContext = WorkspaceContext & {
     editorReady: boolean;
@@ -136,6 +141,15 @@ export const ideMachine = setup({
                         };
                     }),
                 },
+                HYDRATE_WORKSPACE: {
+                    actions: assign(({ event }) => ({
+                        files: event.workspace.files,
+                        diagnostics: event.workspace.diagnostics,
+                        openTabs: event.workspace.openTabs,
+                        activeFilePath: event.workspace.activeFilePath,
+                        _pendingValidation: null,
+                    })),
+                },
                 EDITOR_READY: {
                     actions: assign({ editorReady: true }),
                 },
@@ -144,6 +158,20 @@ export const ideMachine = setup({
                         openTabs: ({ context, event }) =>
                             openTab(context.openTabs, event.path),
                         activeFilePath: ({ event }) => event.path,
+                        files: ({ context, event }) => {
+                            const file = context.files[event.path];
+                            if (!file) return context.files;
+                            if (file.language !== "text") return context.files;
+                            const inferred = languageForPath(event.path);
+                            if (inferred === "text") return context.files;
+                            return {
+                                ...context.files,
+                                [event.path]: {
+                                    ...file,
+                                    language: inferred,
+                                },
+                            };
+                        },
                     }),
                 },
 

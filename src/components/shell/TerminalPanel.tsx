@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { terminalMachine } from "@/machines/terminalMachine";
 import { useMachineContext, makeGetWorkspace } from "@/lib/machineContext";
-import "xterm/css/xterm.css";
 
 const PROMPT = "\x1b[2m yard:/project \x1b[0m\x1b[36m$\x1b[0m ";
 
@@ -31,6 +30,7 @@ export function TerminalPanel() {
         if (!containerRef.current || terminalRef.current) return;
 
         (async () => {
+            await import("xterm/css/xterm.css");
             const { Terminal: XTerminal } = await import("xterm");
             const { FitAddon } = await import("xterm-addon-fit");
             const { WebLinksAddon } = await import("xterm-addon-web-links");

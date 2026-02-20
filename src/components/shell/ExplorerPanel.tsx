@@ -8,7 +8,8 @@ import { useMachineContext } from "@/lib/machineContext";
 import type { WorkspaceFile } from "@/engine/types";
 
 function fileIcon(lang: WorkspaceFile["language"]) {
-    if (lang === "dockerfile") return <FileCode2 size={12} className="shrink-0" />;
+    if (lang === "dockerfile")
+        return <FileCode2 size={12} className="shrink-0" />;
     if (lang === "yaml") return <FileJson size={12} className="shrink-0" />;
     return <FileText size={12} className="shrink-0" />;
 }
@@ -17,7 +18,10 @@ export function ExplorerPanel() {
     const { ideActor } = useMachineContext();
 
     const files = useSelector(ideActor, (s) => Object.values(s.context.files));
-    const activeFilePath = useSelector(ideActor, (s) => s.context.activeFilePath);
+    const activeFilePath = useSelector(
+        ideActor,
+        (s) => s.context.activeFilePath,
+    );
 
     const [creating, setCreating] = useState(false);
     const [newName, setNewName] = useState("");
@@ -32,7 +36,7 @@ export function ExplorerPanel() {
     function commitCreate() {
         const trimmed = newName.trim();
         if (trimmed) {
-            ideActor.send({ type: "CREATE_FILE", path: trimmed, language: "text" });
+            ideActor.send({ type: "CREATE_FILE", path: trimmed });
         }
         setCreating(false);
         setNewName("");
@@ -59,7 +63,12 @@ export function ExplorerPanel() {
                     {files.map((file) => (
                         <button
                             key={file.path}
-                            onClick={() => ideActor.send({ type: "OPEN_FILE", path: file.path })}
+                            onClick={() =>
+                                ideActor.send({
+                                    type: "OPEN_FILE",
+                                    path: file.path,
+                                })
+                            }
                             className={[
                                 "flex items-center gap-2 w-full justify-start px-3 h-7 text-xs font-mono rounded-none transition-colors",
                                 activeFilePath === file.path
@@ -74,7 +83,10 @@ export function ExplorerPanel() {
 
                     {creating && (
                         <div className="flex items-center gap-1 px-3 h-7">
-                            <FileText size={12} className="text-yard-dim shrink-0" />
+                            <FileText
+                                size={12}
+                                className="text-yard-dim shrink-0"
+                            />
                             <input
                                 ref={inputRef}
                                 value={newName}

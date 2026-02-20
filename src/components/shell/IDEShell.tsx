@@ -7,6 +7,7 @@ import { YardPanel } from "./YardPanel";
 import { TerminalPanel } from "./TerminalPanel";
 import { StatusBar } from "./StatusBar";
 import { LessonBridge } from "./LessonBridge";
+import { SessionRestorePrompt } from "./SessionRestorePrompt";
 
 const MIN_EXPLORER = 120;
 const MAX_EXPLORER = 420;
@@ -121,6 +122,7 @@ export function IDEShell() {
     return (
         <div className="flex flex-col h-screen w-screen overflow-hidden bg-yard-bg">
             <LessonBridge />
+            <SessionRestorePrompt />
             <TopBar />
 
             <div className="flex flex-1 min-h-0 overflow-hidden">

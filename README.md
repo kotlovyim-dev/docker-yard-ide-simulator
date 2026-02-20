@@ -2,7 +2,7 @@
 
 # 🚢 Docker Yard IDE Simulator
 
-### Learn Docker by *doing* — right in your browser.
+### Learn Docker by _doing_ — right in your browser.
 
 **A no-backend, interactive Docker IDE simulator** that teaches you how to write `Dockerfile`s and `compose.yml` files through hands-on practice — with real-time diagnostics, a visual container yard, and guided lessons.
 
@@ -32,23 +32,26 @@ Docker Yard is a **fully in-browser Docker learning environment**. No Docker ins
 ## ✨ Features
 
 ### 🖥️ Mini Browser IDE
+
 - File explorer with `Dockerfile`, `compose.yml`, `.env`, and `app/*` workspace
 - Monaco-style editor with tabs and split-view support
 - **Inline diagnostics** — errors and warnings rendered as editor markers
 - Terminal dock with command history and `Ctrl+L` clear
 
 ### ⚙️ Simulation Engine
+
 Event-sourced and deterministic: every command produces events, every event updates state.
 
-| Component | What you see |
-|-----------|-------------|
-| **Containers** | Status, ports, env vars, logs |
-| **Images** | Layer stack with cache hit/miss indicators |
-| **Networks** | Visual tracks and cable connections |
-| **Volumes** | Mount state |
+| Component        | What you see                                  |
+| ---------------- | --------------------------------------------- |
+| **Containers**   | Status, ports, env vars, logs                 |
+| **Images**       | Layer stack with cache hit/miss indicators    |
+| **Networks**     | Visual tracks and cable connections           |
+| **Volumes**      | Mount state                                   |
 | **Event Stream** | Full timeline — "what just happened and why?" |
 
 ### 📚 Learning Mode
+
 - Scenario templates that load into the workspace
 - Progress checks based on state + command history
 - **"Explain last action"** — derived from the event stream, not magic strings
@@ -79,24 +82,58 @@ npm run start
 
 ---
 
+## 🧭 Walkthrough
+
+1. **Pick a lesson or free play**
+    - Use the lesson picker in the top bar to start guided steps.
+    - Or stay in sandbox mode to explore freely.
+
+2. **Open a file and edit**
+    - Use the Explorer to open `Dockerfile` or `compose.yml`.
+    - The editor highlights errors and warnings as you type.
+
+3. **Run Docker commands**
+    - Use the terminal to run commands like `docker pull nginx` or
+      `docker compose up -d`.
+    - The engine updates the yard with containers, images, networks, and volumes.
+
+4. **Verify progress**
+    - The status bar shows your current objective and error count.
+    - Use the Event Log to review what the engine just did and why.
+
+5. **Restore your session later**
+    - On reload, the app can restore your workspace and engine state.
+    - Choose **Restore** to continue where you left off, or **Start fresh**.
+
+---
+
+## 💾 Session Persistence
+
+- Workspace and engine state are saved to `localStorage` with a versioned key.
+- Pending commands and transient errors are cleared on save to keep snapshots stable.
+- To discard a saved session, choose **Start fresh** when prompted.
+
+---
+
 ## 🧠 What You'll Learn
 
 ### Docker CLI — without installing Docker
+
 Practice commands safely. The engine simulates state transitions and produces realistic terminal output.
 
 ### How to write a correct `Dockerfile`
 
-| Type | Examples |
-|------|----------|
-| **Errors** (blocking) | Missing `FROM`, unknown instruction, invalid `ENV` format, bad `COPY`/`ADD` args |
-| **Warnings** (best practice) | Pinning `:latest`, combining `RUN` steps, adding `.dockerignore` |
+| Type                         | Examples                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------- |
+| **Errors** (blocking)        | Missing `FROM`, unknown instruction, invalid `ENV` format, bad `COPY`/`ADD` args |
+| **Warnings** (best practice) | Pinning `:latest`, combining `RUN` steps, adding `.dockerignore`                 |
 
 ### How to write a correct `compose.yml`
 
-| Type | Examples |
-|------|----------|
-| **Errors** (blocking) | YAML parse errors, missing `services`, invalid `ports`/`environment` format |
-| **Warnings** (best practice) | Unpinned image versions, ambiguous defaults, implicit network/volume usage |
+| Type                         | Examples                                                                    |
+| ---------------------------- | --------------------------------------------------------------------------- |
+| **Errors** (blocking)        | YAML parse errors, missing `services`, invalid `ports`/`environment` format |
+| **Warnings** (best practice) | Unpinned image versions, ambiguous defaults, implicit network/volume usage  |
 
 ---
 
@@ -105,6 +142,7 @@ Practice commands safely. The engine simulates state transitions and produces re
 > A focused, learnable subset — also documented in-app via `docker help`.
 
 **Docker CLI**
+
 ```
 docker pull <image[:tag]>
 docker images
@@ -116,17 +154,21 @@ docker exec <name|id> <cmd>
 ```
 
 **Build (from workspace)**
+
 ```
 docker build -t <tag> .
 ```
+
 Reads your `Dockerfile`, validates it, simulates the build with layer logs and cache behavior.
 
 **Compose (from workspace)**
+
 ```
 docker compose up -d
 docker compose ps
 docker compose logs
 ```
+
 Reads your `compose.yml`, validates it, and creates services/networks/volumes in the yard.
 
 ---
@@ -193,14 +235,15 @@ Contributions are very welcome.
 1. Fork the repo and create a feature branch
 2. Keep commits small and focused — one logical change per PR
 3. Open a PR with:
-   - What changed and why
-   - How to verify manually
-   - Screenshots/GIFs if the UI changed
+    - What changed and why
+    - How to verify manually
+    - Screenshots/GIFs if the UI changed
 
 **Proposing a new Docker/Compose diagnostic rule?** Please include:
+
 - A valid example (should pass)
 - An invalid example (should fail/warn)
-- A concise, user-friendly message explaining *why*
+- A concise, user-friendly message explaining _why_
 
 All rules must be deterministic and explainable.
 
