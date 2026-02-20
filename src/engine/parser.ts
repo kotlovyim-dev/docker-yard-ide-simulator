@@ -17,11 +17,24 @@ const LONG_FLAG_BARE_RE = /^--(.+)$/;
 const SHORT_FLAG_RE = /^-([^-].*)$/;
 
 const VALUE_FLAGS: Record<string, Set<string>> = {
-    "run": new Set(["p", "e", "v", "name", "net", "network", "h", "hostname", "u", "user", "w", "workdir"]),
-    "exec": new Set(["e", "u", "w", "workdir"]),
-    "build": new Set(["t", "tag", "f", "file", "target"]),
-    "compose": new Set(["f", "file", "p", "project-name"]),
-    "global": new Set(["H", "host", "c", "context"]),
+    run: new Set([
+        "p",
+        "e",
+        "v",
+        "name",
+        "net",
+        "network",
+        "h",
+        "hostname",
+        "u",
+        "user",
+        "w",
+        "workdir",
+    ]),
+    exec: new Set(["e", "u", "w", "workdir"]),
+    build: new Set(["t", "tag", "f", "file", "target"]),
+    compose: new Set(["f", "file", "p", "project-name"]),
+    global: new Set(["H", "host", "c", "context"]),
 };
 
 export function parseCommand(raw: string): ParsedCommand {
@@ -39,11 +52,18 @@ export function parseCommand(raw: string): ParsedCommand {
         cursor++;
 
         if (cursor < tokens.length) {
-            const initialCmd = tokens[cursor++];
-            subcommand = initialCmd;
+            const initialCmd = tokens[cursor];
+            if (!initialCmd.startsWith("-")) {
+                cursor++;
+                subcommand = initialCmd;
 
-            if (initialCmd === "compose" && cursor < tokens.length && !tokens[cursor].startsWith("-")) {
-                subcommand = `${initialCmd} ${tokens[cursor++]}`;
+                if (
+                    initialCmd === "compose" &&
+                    cursor < tokens.length &&
+                    !tokens[cursor].startsWith("-")
+                ) {
+                    subcommand = `${initialCmd} ${tokens[cursor++]}`;
+                }
             }
         }
     } else {
