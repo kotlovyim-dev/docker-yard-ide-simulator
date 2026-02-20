@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Terminal as XTerminal } from "xterm";
 import type { FitAddon } from "xterm-addon-fit";
 import { useMachine } from "@xstate/react";
@@ -25,6 +25,7 @@ export function TerminalPanel() {
 
     const lastPrintedIndex = useRef(0);
     const lastCommandSequence = useRef(0);
+    const [explainItems, setExplainItems] = useState<string[]>([]);
 
     useEffect(() => {
         if (!containerRef.current || terminalRef.current) return;
@@ -108,7 +109,12 @@ export function TerminalPanel() {
             term.write("\x1b[2K\r");
 
             const newLines = lines.slice(start);
+            const newExplains: string[] = [];
             newLines.forEach((line: { text: string; kind: string }) => {
+                if (line.text.trimStart().startsWith("Explain:")) {
+                    newExplains.push(line.text.replace(/^\s*Explain:\s*/, ""));
+                    return;
+                }
                 let formatted = line.text;
                 if (line.kind === "error") {
                     formatted = `\x1b[31m${line.text}\x1b[0m`;
@@ -119,10 +125,19 @@ export function TerminalPanel() {
                 }
                 term.writeln(formatted);
             });
+            if (newExplains.length > 0) {
+                setExplainItems((prev) => [...prev, ...newExplains]);
+            }
             lastPrintedIndex.current = lines.length;
         }
         term.write(`\x1b[2K\r${PROMPT}${state.context.inputBuffer}`);
     }, [state.context.outputLines, state.context.inputBuffer]);
+
+    useEffect(() => {
+        if (state.context.isRunning) {
+            setExplainItems([]);
+        }
+    }, [state.context.isRunning]);
 
     useEffect(() => {
         const sequence = state.context.commandSequence;
@@ -169,10 +184,26 @@ export function TerminalPanel() {
                     value="terminal-1"
                     className="flex-1 m-0 p-0 relative min-h-0 bg-yard-surface"
                 >
-                    <div
-                        ref={containerRef}
-                        className="h-full w-full bg-yard-bg [padding-left:12px;padding-top:8px]"
-                    />
+                    <div className="flex flex-col h-full min-h-0">
+                        <div
+                            ref={containerRef}
+                            className="flex-1 min-h-0 w-full bg-yard-bg [padding-left:12px;padding-top:8px]"
+                        />
+                        {explainItems.length > 0 && (
+                            <div className="border-t border-yard-border bg-yard-surface px-3 py-2">
+                                <details className="group">
+                                    <summary className="cursor-pointer text-[10px] font-semibold tracking-widest uppercase text-teal">
+                                        Explain
+                                    </summary>
+                                    <div className="mt-2 space-y-1 text-[11px] text-yard-dim">
+                                        {explainItems.map((item, idx) => (
+                                            <p key={`${idx}-${item}`}>{item}</p>
+                                        ))}
+                                    </div>
+                                </details>
+                            </div>
+                        )}
+                    </div>
                 </TabsContent>
             </Tabs>
         </div>

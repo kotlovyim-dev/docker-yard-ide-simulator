@@ -5,6 +5,7 @@ import { useSelector } from "@xstate/react";
 import { useMachineContext } from "@/lib/machineContext";
 import { buildEngineSnapshot } from "@/lib/lessonUtils";
 import { LessonNavigator } from "./LessonNavigator";
+import { EventLog } from "./EventLog";
 
 export function TopBar() {
     const { engineActor, ideActor, lessonActor } = useMachineContext();
@@ -70,6 +71,7 @@ export function TopBar() {
             </span>
 
             <LessonNavigator />
+            <EventLog />
 
             <Button
                 variant="outline"
