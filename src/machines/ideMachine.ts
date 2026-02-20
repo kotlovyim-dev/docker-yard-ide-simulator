@@ -91,24 +91,18 @@ export const ideMachine = setup({
     },
 }).createMachine({
     id: "ide",
-    initial: "loading",
+    initial: "idle",
     context: ({ input }) => ({
         ...defaultIdeContext,
         files: input?.initialFiles ?? {},
     }),
 
     states: {
-        loading: {
-            on: {
-                EDITOR_READY: {
-                    target: "idle",
-                    actions: assign({ editorReady: true }),
-                },
-            },
-        },
-
         idle: {
             on: {
+                EDITOR_READY: {
+                    actions: assign({ editorReady: true }),
+                },
                 OPEN_FILE: {
                     actions: assign({
                         openTabs: ({ context, event }) => openTab(context.openTabs, event.path),
